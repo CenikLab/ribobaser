@@ -1,5 +1,0 @@
-exportPattern("^[[:alpha:]]+")
-importFrom(foreach,"%do%")
-importFrom(foreach,"%dopar%")
-importFrom(stats,setNames)
-importFrom(utils,data)
