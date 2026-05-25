@@ -9,7 +9,7 @@ test_that("zero_imputation replaces zeros with ones", {
   )
   RNA <- matrix(
     c(7, 8, 9,
-      0, 0, 3),
+      0, 0.1, 3),
     nrow = 2, byrow = T,
     dimnames = list(c("g1", "g2"), paste0("s", 1:3))
   )
@@ -17,11 +17,11 @@ test_that("zero_imputation replaces zeros with ones", {
   res <- zero_imputation(RIBO, RNA)
 
   expect_true(all(res$ribo >= 1))
-  expect_true(all(res$rna  >= 1))
+  expect_true(all(res$rna  > 0))
   expect_equal(res$ribo[1, 1], 1)
   expect_equal(res$ribo[1, 3], 1)
-  expect_equal(res$rna [2, 1], 1)
-  expect_equal(res$rna [2, 2], 1)
+  expect_equal(res$rna [2, 1], 0.1)
+  expect_equal(res$rna [2, 2], 0.1)
 })
 
 test_that("zero_imputation preserves non-zero values and structure", {
@@ -77,3 +77,35 @@ test_that("multiplicative imputation delegates to zCompositions", {
   expect_true(all(res$ribo > 0))
   expect_true(all(res$rna  > 0))
 })
+
+test_that("simple zero_imputation caps replacement at 1 when minimum non-zero value is greater than 1", {
+  RIBO <- matrix(
+    c(0, 2, 5,
+      3, 4, 6),
+    nrow = 2, byrow = TRUE,
+    dimnames = list(c("g1", "g2"), paste0("s", 1:3))
+  )
+  RNA <- matrix(
+    c(7, 0, 8,
+      2, 3, 4),
+    nrow = 2, byrow = TRUE,
+    dimnames = list(c("g1", "g2"), paste0("s", 1:3))
+  )
+
+  res <- zero_imputation(RIBO, RNA)
+
+  # Smallest non-zero values are > 1, so zeros should still become 1
+  expect_equal(res$ribo["g1", "s1"], 1)
+  expect_equal(res$rna["g1", "s2"], 1)
+
+  # Non-zero values should stay unchanged
+  expect_equal(res$ribo["g1", "s2"], 2)
+  expect_equal(res$ribo["g2", "s3"], 6)
+  expect_equal(res$rna["g2", "s1"], 2)
+  expect_equal(res$rna["g1", "s3"], 8)
+
+  # Everything should be positive after imputation
+  expect_true(all(res$ribo > 0))
+  expect_true(all(res$rna > 0))
+})
+#

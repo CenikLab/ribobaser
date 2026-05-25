@@ -4,12 +4,14 @@
 #' 1) Inputs are genes by samples
 #' 2) Both RNA and Ribo are calculated for same set of samples
 #' 3) The data represents read counts and is not cpm/clr normalized.
+#' 4) The Ribo and RNA matrices have undergone zero imputation.
 #'
 #' Existing features
-#' a) Support removing samples where dummy genes is a large proportion of the remaining
+#' a) Support removing samples where dummy genes are a large proportion of the
+#' remaining counts
 #' b) Support removing samples with poor correspondence between RNA and Ribo
-#' this is currently done after adding one count to all values to avoid zeros
-#' then each is clr normalized and r2 from lm(RIBO~RNA) is used for selecting samples to remove
+#' Samples are selected for removal based on r^2 from lm(RIBO~RNA) after
+#' CLR-normalization
 #'
 #' Optional features to Implement later
 #' a) Support only ribo or RNA
@@ -80,6 +82,14 @@ select_samples <- function(RIBO, RNA,
     stop("RIBO and RNA must share identical sample columns")
   }
 
+  if (!identical(rownames(RIBO), rownames(RNA))) {
+    stop("RIBO and RNA must share identical gene rows")
+  }
+
+  if(0 %in% RIBO || 0 %in% RNA) {
+    stop("Ribo/RNA matrices contain zeroes. Please impute.")
+  }
+
   # Early exit if no filtering requested
   if (high_dummy_percentage == 0 && min_r2 == 0 && min_periodicity == 0) {
     return(list(ribo = RIBO, rna = RNA))
@@ -127,14 +137,13 @@ select_samples <- function(RIBO, RNA,
     keep_periodicity <- sample_periodicity >= min_periodicity
     if (any(!keep_periodicity)) {
       current_ribo <- current_ribo[, keep_periodicity, drop = FALSE]
-      current_rna  <- current_rna [, keep_periodicity, drop = FALSE]
+      current_rna  <- current_rna[, keep_periodicity, drop = FALSE]
     }
   }
 
   if (min_r2 > 0 && ncol(current_ribo) > 0) {
-    imputed <- zero_imputation(current_ribo, current_rna)
-    ribo_clr <- t(compositions::clr(t(imputed$ribo)))
-    rna_clr  <- t(compositions::clr(t(imputed$rna)))
+    ribo_clr <- t(compositions::clr(t(current_ribo)))
+    rna_clr <- t(compositions::clr(t(current_rna)))
 
     sample_r2 <- vapply(seq_len(ncol(ribo_clr)), function(i) {
       fit <- stats::lm(ribo_clr[, i] ~ rna_clr[, i])
